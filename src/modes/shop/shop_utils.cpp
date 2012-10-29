@@ -47,7 +47,8 @@ ShopObject::ShopObject(GlobalObject *object) :
     _own_count(0),
     _stock_count(0),
     _buy_count(0),
-    _sell_count(0)
+    _sell_count(0),
+    _trade_count(0)
 {
     assert(_object != NULL);
 }
@@ -99,6 +100,7 @@ void ShopObject::SetPricing(SHOP_PRICE_LEVEL buy_level, SHOP_PRICE_LEVEL sell_le
 {
     _buy_price = _object->GetPrice();
     _sell_price = _object->GetPrice();
+    _trade_price = _object->GetTradePrice();
 
     switch(buy_level) {
     case SHOP_PRICE_VERY_GOOD:
@@ -199,6 +201,27 @@ void ShopObject::IncrementSellCount(uint32 inc)
 
 
 
+void ShopObject::IncrementTradeCount(uint32 inc)
+{
+    uint32 old_count = _trade_count;
+    if(inc == 0) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "function received an argument with a value of zero" << std::endl;
+        return;
+    }
+
+    _trade_count += inc;
+    if(_trade_count > _stock_count) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "incremented sell count beyond the amount available to be sold" << std::endl;
+        _trade_count -= inc;
+        return;
+    }
+    if(old_count == 0) {
+        ShopMode::CurrentInstance()->AddObjectToTradeList(this);
+    }
+}
+
+
+
 void ShopObject::DecrementOwnCount(uint32 dec)
 {
     if(dec > _own_count) {
@@ -268,6 +291,25 @@ void ShopObject::DecrementSellCount(uint32 dec)
     _sell_count -= dec;
     if(_sell_count == 0) {
         ShopMode::CurrentInstance()->RemoveObjectFromSellList(this);
+    }
+}
+
+
+void ShopObject::DecrementTradeCount(uint32 dec)
+{
+    if(dec == 0) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "function received an argument with a value of zero" << std::endl;
+        return;
+    }
+
+    if(dec > _trade_count) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "attempted to decrement sell count below zero" << std::endl;
+        return;
+    }
+
+    _trade_count -= dec;
+    if(_trade_count == 0) {
+        ShopMode::CurrentInstance()->RemoveObjectFromTradeList(this);
     }
 }
 

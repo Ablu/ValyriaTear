@@ -389,6 +389,7 @@ class SellInterface;
 class SellListDisplay;
 
 class TradeInterface;
+class TradeListDisplay;
 
 class ConfirmInterface;
 

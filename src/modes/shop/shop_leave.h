@@ -150,8 +150,8 @@ private:
     //! \brief A display of all inventory objects marked for sale and their properties
     SellListDisplay *_sell_list_display;
 
-    // TODO: Add once trade interface is working and this class is defined
-    // TradeListDisplay* _trade_list_display;
+    //! \brief A display of all wares marked for trade and their properties
+    TradeListDisplay *_trade_list_display;
 
     //! \brief Text that prompts the user for their desired action
     hoa_video::TextImage _main_prompt;

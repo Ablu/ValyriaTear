@@ -1028,7 +1028,7 @@ ShopMode::ShopMode() :
     std::vector<ustring> option_text;
     option_text.push_back(UTranslate("Buy"));
     option_text.push_back(UTranslate("Sell"));
-//	option_text.push_back(UTranslate("Trade"));
+    option_text.push_back(UTranslate("Trade"));
     option_text.push_back(UTranslate("Confirm"));
     _action_options.SetOptions(option_text);
     _action_options.SetSelection(0);
@@ -1036,8 +1036,8 @@ ShopMode::ShopMode() :
 
     _action_titles.push_back(TextImage(option_text[0], TextStyle("title28")));
     _action_titles.push_back(TextImage(option_text[1], TextStyle("title28")));
-//	_action_titles.push_back(TextImage(option_text[2], TextStyle("title28")));
     _action_titles.push_back(TextImage(option_text[2], TextStyle("title28")));
+    _action_titles.push_back(TextImage(option_text[3], TextStyle("title28")));
     _action_titles.push_back(TextImage(UTranslate("Leave"), TextStyle("title28")));
 
     // (3) Create the financial table text
@@ -1168,6 +1168,7 @@ void ShopMode::_UpdateAvailableShopOptions()
 {
 
     // Test the available categories
+    //Switch back to buy
     if(_available_buy.size() > 0)
         _action_options.EnableOption(0, true);
     else
@@ -1178,20 +1179,21 @@ void ShopMode::_UpdateAvailableShopOptions()
     else
         _action_options.EnableOption(1, false);
 
-    // Nothing to do in this shop
+    if(_available_trade.size() > 0)
+        _action_options.EnableOption(2, true);
+    else {
+        _action_options.EnableOption(2, false);
+    }
+
     if(!_action_options.IsOptionEnabled(0) && !_action_options.IsOptionEnabled(1)) {
-        // Put the cursor on confirm/cancel.
+        // Put the cursor on trade.
         _action_options.SetSelection(2);
     } else if(!_action_options.IsOptionEnabled(0)) {
         // Put the cursor on sell.
         _action_options.SetSelection(1);
-        // Enable the confirm option.
-        _action_options.EnableOption(2, true);
-    } else if(!_action_options.IsOptionEnabled(1)) {
+    } else if(!_action_options.IsOptionEnabled(1) || !_action_options.IsOptionEnabled(2)) {
         // Put the cursor on buy.
         _action_options.SetSelection(0);
-        // Enable the confirm option.
-        _action_options.EnableOption(2, true);
     }
 }
 
@@ -1225,13 +1227,12 @@ void ShopMode::Update()
 
             if(_action_options.GetSelection() == 0) {  // Buy
                 ChangeState(SHOP_STATE_BUY);
-            } else if(_action_options.GetSelection() == 1) { // Sell
-                ChangeState(SHOP_STATE_SELL);
             }
-//			else if (_action_options.GetSelection() == 2) { // Trade
-//				ChangeState(SHOP_STATE_TRADE);
-//			}
-            else if(_action_options.GetSelection() == 2) {  // ConfirmInterface
+            if(_action_options.GetSelection() == 1) {  // Sell
+                ChangeState(SHOP_STATE_SELL);
+            } else if(_action_options.GetSelection() == 2) { // Trade
+                ChangeState(SHOP_STATE_TRADE);
+            } else if(_action_options.GetSelection() == 3) { // ConfirmInterface
                 ChangeState(SHOP_STATE_CONFIRM);
             }
         } else if(InputManager->CancelPress()) {
@@ -1306,14 +1307,14 @@ void ShopMode::Draw()
     case SHOP_STATE_SELL:
         _action_titles[1].Draw();
         break;
-//		case SHOP_STATE_TRADE:
-//			_action_titles[2].Draw();
-//			break;
-    case SHOP_STATE_CONFIRM:
+    case SHOP_STATE_TRADE:
         _action_titles[2].Draw();
         break;
-    case SHOP_STATE_LEAVE:
+    case SHOP_STATE_CONFIRM:
         _action_titles[3].Draw();
+        break;
+    case SHOP_STATE_LEAVE:
+        _action_titles[4].Draw();
         break;
     default:
         IF_PRINT_WARNING(SHOP_DEBUG) << "invalid shop state: " << _state << std::endl;
@@ -1438,6 +1439,49 @@ void ShopMode::RemoveObjectFromSellList(ShopObject *object)
 }
 
 
+void ShopMode::AddObjectToTradeList(ShopObject *object)
+{
+    if(object == NULL) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "function was passed a NULL argument" << std::endl;
+        return;
+    }
+
+    if(object->GetTradeCount() == 0) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "object to be added had a buy count of zero" << std::endl;
+    }
+
+    uint32 object_id = object->GetObject()->GetID();
+    std::pair<std::map<uint32, ShopObject *>::iterator, bool> ret_val;
+    ret_val = _trade_list.insert(std::make_pair(object_id, object));
+    if(ret_val.second == false) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "object to be added already existed in buy list" << std::endl;
+    }
+}
+
+
+
+void ShopMode::RemoveObjectFromTradeList(ShopObject *object)
+{
+    if(object == NULL) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "function was passed a NULL argument" << std::endl;
+        return;
+    }
+
+    if(object->GetTradeCount() > 0) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "object to be removed had a buy count that was non-zero" << std::endl;
+    }
+
+    uint32 object_id = object->GetObject()->GetID();
+    std::map<uint32, ShopObject *>::iterator object_entry = _trade_list.find(object_id);
+    if(object_entry == _trade_list.end()) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "object to be removed did not exist on the buy list" << std::endl;
+    } else {
+        _trade_list.erase(object_entry);
+    }
+}
+
+
+
 
 void ShopMode::ClearOrder()
 {
@@ -1445,9 +1489,12 @@ void ShopMode::ClearOrder()
         i->second->ResetBuyCount();
     for(std::map<uint32, ShopObject *>::iterator i = _sell_list.begin(); i != _sell_list.end(); i++)
         i->second->ResetSellCount();
+    for(std::map<uint32, ShopObject *>::iterator i = _trade_list.begin(); i != _trade_list.end(); i++)
+        i->second->ResetTradeCount();
 
     _buy_list.clear();
     _sell_list.clear();
+    _trade_list.clear();
 
     _total_costs = 0;
     _total_sales = 0;
@@ -1498,6 +1545,26 @@ void ShopMode::CompleteTransaction()
         }
     }
     _sell_list.clear();
+
+    // Remove all objects on the trade list from the inventory and update shop object status
+    for(std::map<uint32, ShopObject *>::iterator i = _trade_list.begin(); i != _trade_list.end(); i++) {
+        count = i->second->GetTradeCount();
+        id = i->second->GetObject()->GetID();
+
+        if(count == 0)
+            continue;
+
+        i->second->ResetTradeCount();
+        i->second->IncrementOwnCount(count);
+        i->second->DecrementStockCount(count);
+        GlobalManager->AddToInventory(id, count);
+        //GlobalManager->DecrementObjectCount(1, count); //Causes error
+
+        if(i->second->GetStockCount() == 0) {
+            RemoveObjectToTrade(id);
+        }
+    }
+    _trade_list.clear();
 
     // Update the player's drune count by subtracting costs and adding revenue and update the shop's financial display
     GlobalManager->AddDrunes(_total_sales);
@@ -1564,7 +1631,7 @@ void ShopMode::ChangeState(SHOP_STATE new_state)
 
     // When state changes to the leave state, leave immediately if there are no marked purchases, sales, or trades
     if(_state == SHOP_STATE_LEAVE) {
-        if((GetTotalCosts() == 0) && (GetTotalSales() == 0)) {
+        if((GetTotalCosts() == 0) && (GetTotalSales() == 0) && GetTradeList()->empty()) {
             ModeManager->Pop();
             return;
         }
@@ -1661,6 +1728,33 @@ void ShopMode::AddObject(uint32 object_id, uint32 stock)
 
 
 
+void ShopMode::AddTrade(uint32 object_id, uint32 stock)
+{
+    if(IsInitialized() == true) {
+        PRINT_WARNING << "function called after shop was already initialized" << std::endl;
+        return;
+    }
+
+    if(object_id == private_global::OBJECT_ID_INVALID || object_id >= private_global::OBJECT_ID_EXCEEDS) {
+        PRINT_WARNING << "attempted to add object with invalid id: " << object_id << std::endl;
+        return;
+    }
+
+    if(_available_buy.find(object_id) != _available_buy.end()) {
+        PRINT_WARNING << "attempted to add object that already existed: " << object_id << std::endl;
+        return;
+    }
+
+    GlobalObject *new_object = GlobalCreateNewObject(object_id, 1);
+    if(new_object != NULL) {
+        ShopObject *new_shop_object = new ShopObject(new_object);
+        new_shop_object->IncrementStockCount(stock);
+        _available_trade.insert(std::make_pair(object_id, new_shop_object));
+    }
+}
+
+
+
 void ShopMode::RemoveObjectToSell(uint32 object_id)
 {
     std::map<uint32, ShopObject *>::iterator shop_iter = _available_sell.find(object_id);
@@ -1675,6 +1769,22 @@ void ShopMode::RemoveObjectToSell(uint32 object_id)
     }
 
     _available_sell.erase(shop_iter);
+}
+
+void ShopMode::RemoveObjectToTrade(uint32 object_id)
+{
+    std::map<uint32, ShopObject *>::iterator shop_iter = _available_trade.find(object_id);
+    if(shop_iter == _available_trade.end()) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "attempted to remove object that did not exist: " << object_id << std::endl;
+        return;
+    }
+
+    if(shop_iter->second->GetStockCount() != 0) {
+        IF_PRINT_WARNING(SHOP_DEBUG) << "object's ownership count was non-zero: " << object_id << std::endl;
+        return;
+    }
+
+    _available_trade.erase(shop_iter);
 }
 
 } // namespace hoa_shop

@@ -36,6 +36,7 @@ void GlobalObject::_LoadObjectData(hoa_script::ReadScriptDescriptor &script)
     _name = MakeUnicodeString(script.ReadString("name"));
     _description = MakeUnicodeString(script.ReadString("description"));
     _price = script.ReadUInt("standard_price");
+    _LoadTradePrice(script);
     std::string icon_file = script.ReadString("icon");
     if(_icon_image.Load(icon_file) == false) {
         IF_PRINT_WARNING(GLOBAL_DEBUG) << "failed to load icon image for item: " << _id << std::endl;
@@ -100,6 +101,34 @@ void GlobalObject::_LoadStatusEffects(hoa_script::ReadScriptDescriptor &script)
     }
 
     script.CloseTable(); // status_effects
+}
+
+void GlobalObject::_LoadTradePrice(hoa_script::ReadScriptDescriptor &script)
+{
+    std::vector<uint32> temp;
+
+    if(!script.DoesTableExist("trade_price")) {
+        return;
+    }
+
+    script.ReadTableKeys("trade_price", temp);
+
+    if(temp.empty()) {
+        return;
+    }
+
+    script.OpenTable("trade_price");
+
+    for(uint32 i = 0; i < temp.size(); ++i) {
+        uint32 key = temp[i];
+        uint32 intensity = script.ReadInt(key);
+        _trade_price.push_back(key);
+        //_status_effects.push_back(std::pair<GLOBAL_STATUS, GLOBAL_INTENSITY>((GLOBAL_STATUS)key, (GLOBAL_INTENSITY)intensity));
+    }
+
+    script.CloseTable(); // status_effects
+
+    return;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

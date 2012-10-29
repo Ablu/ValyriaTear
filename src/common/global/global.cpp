@@ -1421,4 +1421,3 @@ void GameGlobal::_LoadEvents(ReadScriptDescriptor &file, const std::string &grou
 }
 
 } // namespace hoa_global
-

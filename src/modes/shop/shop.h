@@ -460,6 +460,20 @@ public:
     **/
     void RemoveObjectFromSellList(private_shop::ShopObject *object);
 
+    /** \brief Used when an object has been selected to be sold by the player
+    *** \param object A pointer to the object to add
+    *** \note The sell count of the shop object added should be non-zero before this function is called.
+    *** Otherwise a warning message will be printed, but the object will still be added.
+    **/
+    void AddObjectToTradeList(private_shop::ShopObject *object);
+
+    /** \brief Used when the player decides not to sell an object that was previously marked to be sold
+    *** \param object A pointer to the object to remove
+    *** \note The sell count of the shop object added should be zero before this function is called.
+    *** Otherwise a warning message will be printed, but the object will still be removed.
+    **/
+    void RemoveObjectFromTradeList(private_shop::ShopObject *object);
+
     /** \brief Called whenever the player chooses to clear all marked purchases, sales, and trades
     *** This will empty the buy/sell/trade lists and reset the total costs and sales amounts
     **/
@@ -534,6 +548,16 @@ public:
     void AddObject(uint32 object_id, uint32 stock);
     //@}
 
+    /** \brief Adds a new trade for the shop to sell
+    *** \param object_id The id number of the object to add
+    *** \param stock The amount of the object to make available for sale at the shop
+    ***
+    *** Adding an object after the shop mode instance has already been initialized (by being made the active game state)
+    *** this call will add the object but will not be visible to the player.
+    **/
+    void AddTrade(uint32 object_id, uint32 stock);
+    //@}
+
     /** \brief Deletes an object from the shop
     *** \param object_id The id number of the object to remove
     ***
@@ -543,6 +567,16 @@ public:
     *** inventory will result in a warning message and the object will not be removed.
     **/
     void RemoveObjectToSell(uint32 object_id);
+
+    /** \brief Deletes an object from the shop
+    *** \param object_id The id number of the object to remove
+    ***
+    *** This function should be used in only one specific case. This case is when the player owns this object and
+    *** chooses to sell all instances of it and additionally the shop does not sell this item. Trying to remove
+    *** an object that the shop sells to the player or trying to remove an object that still remains in the party's
+    *** inventory will result in a warning message and the object will not be removed.
+    **/
+    void RemoveObjectToTrade(uint32 object_id);
 
     //! \name Class member access functions
     //@{
@@ -580,6 +614,11 @@ public:
         return &_available_sell;
     }
 
+    //! Returns the available list of item that can be sold by the character
+    std::map<uint32, private_shop::ShopObject *>* GetAvailableTrade() {
+        return &_available_trade;
+    }
+
     //!  Returns the list of items the player has currently reserved for acquisition.
     std::map<uint32, private_shop::ShopObject *>* GetBuyList() {
         return &_buy_list;
@@ -588,6 +627,11 @@ public:
     //! Returns the list of items the player is currently willing to sell.
     std::map<uint32, private_shop::ShopObject *>* GetSellList() {
         return &_sell_list;
+    }
+
+    //! Returns the list of items the player is currently willing to sell.
+    std::map<uint32, private_shop::ShopObject *>* GetTradeList() {
+        return &_trade_list;
     }
 
     hoa_gui::MenuWindow *GetTopWindow() {
@@ -639,6 +683,7 @@ private:
     **/
     std::map<uint32, private_shop::ShopObject *> _available_buy;
     std::map<uint32, private_shop::ShopObject *> _available_sell;
+    std::map<uint32, private_shop::ShopObject *> _available_trade;
 
     /** \brief Holds pointers to all objects that the player plans to purchase
     *** The integer key to this map is the global object ID represented by the ShopObject.
@@ -649,6 +694,11 @@ private:
     *** The integer key to this map is the global object ID represented by the ShopObject.
     **/
     std::map<uint32, private_shop::ShopObject *> _sell_list;
+
+    /** \brief Holds pointers to all objects that the player plans to sell
+    *** The integer key to this map is the global object ID represented by the ShopObject.
+    **/
+    std::map<uint32, private_shop::ShopObject *> _trade_list;
 
     //! \brief A pointer to the ShopMedia object created to coincide with this instance of ShopMode
     private_shop::ShopMedia *_shop_media;
